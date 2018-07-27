@@ -9,36 +9,22 @@ from pyspark import SparkContext
 from pyspark.mllib.regression import LabeledPoint
 from pyspark.mllib.stat import Statistics
 from pyspark.mllib.util import MLUtils
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.stat import Correlation
+from pyspark.sql import SparkSession
+spark = SparkSession\
+        .builder\
+        .appName("PipelineExample")\
+        .getOrCreate()
 
+data = [(Vectors.sparse(4, [(0, 1.0), (3, -2.0)]),),
+        (Vectors.dense([4.0, 5.0, 0.0, 3.0]),),
+        (Vectors.dense([6.0, 7.0, 0.0, 8.0]),),
+        (Vectors.sparse(4, [(0, 9.0), (3, 1.0)]),)]
+df = spark.createDataFrame(data, ["features"])
 
-if __name__ == "__main__":
-    if len(sys.argv) not in [1, 2]:
-        print("Usage: correlations (<file>)", file=sys.stderr)
-        sys.exit(-1)
-    sc = SparkContext(appName="PythonCorrelations")
-    if len(sys.argv) == 2:
-        filepath = sys.argv[1]
-    else:
-        filepath = 'data/sample_linear_regression_data.txt'
-    corrType = 'pearson'
+r1 = Correlation.corr(df, "features").head()
+print("Pearson correlation matrix:\n" + str(r1[0]))
 
-    points = MLUtils.loadLibSVMFile(sc, filepath)\
-        .map(lambda lp: LabeledPoint(lp.label, lp.features.toArray()))
-
-    print()
-    print('Summary of data file: ' + filepath)
-    print('%d data points' % points.count())
-
-    # Statistics (correlations)
-    print()
-    print('Correlation (%s) between label and each feature' % corrType)
-    print('Feature\tCorrelation')
-    numFeatures = points.take(1)[0].features.size
-    labelRDD = points.map(lambda lp: lp.label)
-    for i in range(numFeatures):
-        featureRDD = points.map(lambda lp: lp.features[i])
-        corr = Statistics.corr(labelRDD, featureRDD, corrType)
-        print('%d\t%g' % (i, corr))
-    print()
-
-    sc.stop()
+r2 = Correlation.corr(df, "features", "spearman").head()
+print("Spearman correlation matrix:\n" + str(r2[0]))
